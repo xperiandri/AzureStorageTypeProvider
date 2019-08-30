@@ -1,4 +1,4 @@
-WindowsAzure.Storage
+Microsoft.Azure.Storage.Common
 FSharp.Core
 System.Configuration.ConfigurationManager
 System.Net.Http

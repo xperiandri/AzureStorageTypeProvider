@@ -1,8 +1,6 @@
 ﻿namespace ProviderImplementation
 
 open FSharp.Azure.StorageTypeProvider
-open FSharp.Azure.StorageTypeProvider.Blob
-open FSharp.Azure.StorageTypeProvider.Queue
 open FSharp.Azure.StorageTypeProvider.Table
 open FSharp.Azure.StorageTypeProvider.Configuration
 open Microsoft.FSharp.Core.CompilerServices
@@ -13,12 +11,12 @@ open System.Reflection
 
 [<TypeProvider>]
 /// [omit]
-type public AzureTypeProvider(config : TypeProviderConfig) as this = 
+type public TableTypeProvider(config : TypeProviderConfig) as this =
     inherit TypeProviderForNamespaces(config)
 
-    let namespaceName = "FSharp.Azure.StorageTypeProvider"
-    let thisAssembly = Assembly.GetExecutingAssembly()
-    let azureAccountType = ProvidedTypeDefinition(thisAssembly, namespaceName, "AzureTypeProvider", baseType = Some typeof<obj>)
+    let namespaceName = "FSharp.Azure.StorageTypeProvider.Table"
+    let thisAssembly = typeof<TableTypeProvider>.Assembly
+    let azureAccountType = ProvidedTypeDefinition(thisAssembly, namespaceName, "TableTypeProvider", baseType = Some typeof<obj>)
 
     let buildConnectionString (args : obj []) =
         let (|ConnectionString|TwoPart|DevelopmentStorage|) (args:obj []) =
@@ -27,7 +25,7 @@ type public AzureTypeProvider(config : TypeProviderConfig) as this =
             let configFileKey, configFileName = getArg 2, getArg 3
 
             match accountNameOrConnectionString, accountKey, configFileKey with
-            | _ when (not << String.IsNullOrWhiteSpace) configFileKey -> 
+            | _ when (not << String.IsNullOrWhiteSpace) configFileKey ->
                 let connectionFromConfig = getConnectionString(configFileKey, config.ResolutionFolder, configFileName)
                 ConnectionString connectionFromConfig
             | _ when accountNameOrConnectionString.StartsWith "DefaultEndpointsProtocol" -> ConnectionString accountNameOrConnectionString
@@ -49,14 +47,14 @@ type public AzureTypeProvider(config : TypeProviderConfig) as this =
                     this.Invalidate()
             } |> Async.Start
         | _ -> ()
-            
-    let buildTypes (typeName : string) (args : obj []) = 
+
+    let buildTypes (typeName : string) (args : obj []) =
         // Create the top level property
         let typeProviderForAccount = ProvidedTypeDefinition(thisAssembly, namespaceName, typeName, baseType = Some typeof<obj>)
         typeProviderForAccount.AddMember(ProvidedConstructor([], fun _ -> <@@ null @@>))
-        
+
         startLiveRefresh args.[8]
-        
+
         let connectionString = buildConnectionString args
         let staticBlobSchema = args.[6] :?> string |> Option.ofString
         let staticTableSchema = args.[7] :?> string |> Option.ofString
@@ -64,14 +62,13 @@ type public AzureTypeProvider(config : TypeProviderConfig) as this =
             match staticBlobSchema, staticTableSchema with
             | Some _, _ | _, Some _ -> None
             | _ -> Some (validateConnectionString connectionString)
-            
-        let parsedBlobSchema = Blob.StaticSchema.createSchema config.ResolutionFolder staticBlobSchema
+
         let parsedTableSchema = Table.StaticSchema.createSchema config.ResolutionFolder staticTableSchema
 
-        match connectionStringValidation, parsedBlobSchema, parsedTableSchema with
-        | Some (Ok ()), Ok blobSchema, Ok tableSchema
-        | None, Ok blobSchema, Ok tableSchema ->
-            let domainTypes = ProvidedTypeDefinition("Domain", Some typeof<obj>)            
+        match connectionStringValidation, parsedTableSchema with
+        | Some (Ok ()), Ok tableSchema
+        | None, Ok tableSchema ->
+            let domainTypes = ProvidedTypeDefinition("Domain", Some typeof<obj>)
             typeProviderForAccount.AddMember(domainTypes)
 
             let schemaInferenceRowCount = args.[4] :?> int
@@ -79,22 +76,19 @@ type public AzureTypeProvider(config : TypeProviderConfig) as this =
 
             // Now create child members e.g. containers, tables etc.
             typeProviderForAccount.AddMembers
-                ([ (BlobMemberFactory.getBlobStorageMembers blobSchema, "blobs")
-                   (TableMemberFactory.getTableStorageMembers tableSchema schemaInferenceRowCount humanizeColumns, "tables")
-                   (QueueMemberFactory.getQueueStorageMembers, "queues") ]
+                ([ (TableMemberFactory.getTableStorageMembers tableSchema schemaInferenceRowCount humanizeColumns, "tables") ]
                 |> List.choose (fun (builder, name) ->
                     try builder(connectionString, domainTypes)
                     with ex -> failwithf "An error occurred during initial type generation for %s: %O" name ex))
             typeProviderForAccount
-        | Some (Error ex), _, _ -> failwithf "Unable to validate connection string (%O)" ex
-        | _, Error ex, _ -> failwithf "Unable to parse blob schema file (%O)" ex
-        | _, _, Error ex -> failwithf "Unable to parse table schema file (%O)" ex
-    
+        | Some (Error ex), _ -> failwithf "Unable to validate connection string (%O)" ex
+        | _, Error ex -> failwithf "Unable to parse table schema file (%O)" ex
+
     let createParam (name, defaultValue:'a, help) =
         let providedParameter = ProvidedStaticParameter(name, typeof<'a>, defaultValue)
         providedParameter.AddXmlDoc help
         providedParameter
-    
+
     // Parameterising the provider
     let parameters =
         [ createParam("accountName", String.Empty, "The Storage Account name, or full connection string in the format 'DefaultEndpointsProtocol=protocol;AccountName=account;AccountKey=key;'.")
@@ -106,7 +100,7 @@ type public AzureTypeProvider(config : TypeProviderConfig) as this =
           createParam("blobSchema", String.Empty, "Provide a path to a local file containing a fixed schema to eagerly use, instead of lazily generating the blob schema from a live storage account.")
           createParam("tableSchema", String.Empty, "Provide a path to a local file containing a fixed schema to eagerly use, instead of lazily generating the table schema from a live storage account.")
           createParam("autoRefresh", 0, "Optionally provide the number of seconds to wait before refreshing the schema. Defaults to 0 (never).") ]
-    
+
     let memoize func =
         let cache = Dictionary()
         fun argsAsString args ->

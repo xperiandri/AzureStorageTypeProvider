@@ -1,0 +1,4 @@
+Microsoft.Azure.Storage.Queue
+FSharp.Core
+System.Configuration.ConfigurationManager
+System.Net.Http

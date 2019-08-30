@@ -2,8 +2,8 @@
 
 open FSharp.Azure.StorageTypeProvider.Table
 open FSharp.Azure.StorageTypeProvider.Table.TableRepository
-open Microsoft.WindowsAzure.Storage
-open Microsoft.WindowsAzure.Storage.Table
+open Microsoft.Azure.Storage
+open Microsoft.Azure.Cosmos.Table
 open ProviderImplementation.ProvidedTypes
 
 let (|StorageExn|_|) (ex:exn) =
@@ -24,7 +24,7 @@ let getTableStorageMembers optionalStaticSchema schemaInferenceRowCount humanize
         domainType.AddMember tableListingType
 
         /// Creates an individual Table member
-        let createTableType columnDefinitions connectionString tableName propertyName = 
+        let createTableType columnDefinitions connectionString tableName propertyName =
             let tableEntityType = ProvidedTypeDefinition(tableName + "Entity", Some typeof<LightweightTableEntity>, hideObjectMethods = true)
             let tableType = ProvidedTypeDefinition(tableName + "Table", Some typeof<AzureTable>, hideObjectMethods = true)
             domainType.AddMembers [ tableEntityType; tableType ]
@@ -59,7 +59,7 @@ let getTableStorageMembers optionalStaticSchema schemaInferenceRowCount humanize
                     |> Async.RunSynchronously)
 
                 // Get any metrics tables that are available
-                let metrics = getMetricsTables connectionString    
+                let metrics = getMetricsTables connectionString
                 if metrics <> Seq.empty then
                     tableListingType.AddMembersDelayed(fun _ ->
                         let metricsTablesType = ProvidedTypeDefinition("$Azure_Metrics", Some typeof<obj>, hideObjectMethods = true)
@@ -77,7 +77,7 @@ let getTableStorageMembers optionalStaticSchema schemaInferenceRowCount humanize
         let ctcProp = ProvidedProperty("CloudTableClient", typeof<CloudTableClient>, getterCode = (fun _ -> <@@ TableBuilder.createAzureTableRoot connectionString @@>))
         ctcProp.AddXmlDoc "Gets a handle to the Table Azure SDK client for this storage account."
         tableListingType.AddMember ctcProp
-  
+
         let tableListingProp = ProvidedProperty("Tables", tableListingType, isStatic = true, getterCode = (fun _ -> <@@ () @@>))
         tableListingProp.AddXmlDoc "Gets the list of all tables in this storage account."
         return Some tableListingProp }

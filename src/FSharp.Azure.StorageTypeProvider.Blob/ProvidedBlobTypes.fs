@@ -1,8 +1,8 @@
 ﻿namespace FSharp.Azure.StorageTypeProvider.Blob
 
 open FSharp.Azure.StorageTypeProvider.Blob.BlobRepository
-open Microsoft.WindowsAzure.Storage
-open Microsoft.WindowsAzure.Storage.Blob
+open Microsoft.Azure.Storage
+open Microsoft.Azure.Storage.Blob
 open System
 open System.IO
 open System.Xml.Linq
@@ -29,7 +29,7 @@ type BlobMetadata internal (properties:Blob.BlobProperties) =
     member __.PageBlobSequenceNumber = pageBlobSequenceNumber
 
 type BlobContainerMetadata internal (properties:Blob.BlobContainerProperties) =
-    let lastModified = properties.LastModified |> Option.ofNullable    
+    let lastModified = properties.LastModified |> Option.ofNullable
     member __.ETag = properties.ETag
     member __.LastModified = lastModified
     member __.LeaseStatus = properties.LeaseStatus
@@ -41,7 +41,7 @@ type BlobContainerMetadata internal (properties:Blob.BlobContainerProperties) =
 type BlobFile internal (defaultConnectionString, container, file, getBlobRef : _ -> ICloudBlob) =
     let getBlobRef connectionString = getBlobRef (defaultArg connectionString defaultConnectionString, container, file)
     member private __.BlobRef connectionString = getBlobRef connectionString
-    
+
     /// Gets a handle to the Azure SDK client for this blob.
     member this.AsICloudBlob(?connectionString) = this.BlobRef(connectionString)
 
@@ -54,16 +54,16 @@ type BlobFile internal (defaultConnectionString, container, file, getBlobRef : _
         let blobRef = this.BlobRef connectionString
         let sas = blobRef.GetSharedAccessSignature policy
         Uri(sprintf "%s%s" (blobRef.Uri.ToString()) sas)
-    
+
     /// Downloads this file to the specified path.
-    member this.Download(path, ?connectionString) = 
+    member this.Download(path, ?connectionString) =
         let targetDirectory = Path.GetDirectoryName(path)
         if not (Directory.Exists targetDirectory) then Directory.CreateDirectory targetDirectory |> ignore
         this.BlobRef(connectionString).DownloadToFileAsync(path, FileMode.Create) |> Async.AwaitTask
-    
+
     /// Opens this file as a stream for reading.
     member this.OpenStream(?connectionString:string) = this.BlobRef(connectionString).OpenReadAsync(AccessCondition(), BlobRequestOptions(), null).Result
-    
+
     /// Opens this file as a text stream for reading.
     member this.OpenStreamAsText(?connectionString) =
         match connectionString with
@@ -78,7 +78,7 @@ type BlobFile internal (defaultConnectionString, container, file, getBlobRef : _
             | None -> this.OpenStreamAsText()
         while not stream.EndOfStream do
             yield stream.ReadLine() }
-  
+
     /// Fetches the latest metadata for the blob.
     member __.GetProperties(?connectionString) = async {
         let blobRef = getBlobRef connectionString
@@ -109,7 +109,7 @@ type BlockBlobFile internal (defaultConnectionString, container, file) =
 
     /// Reads this file as a string.
     member __.Read(?connectionString) = (getBlobRef connectionString).DownloadTextAsync().Result
-    
+
     /// Reads this file as a string asynchronously.
     member __.ReadAsync(?connectionString) = getBlobRef(connectionString).DownloadTextAsync() |> Async.AwaitTask
 
@@ -120,19 +120,19 @@ type PageBlobFile internal (defaultConnectionString, container, file) =
     member __.AsCloudPageBlob(?connectionString) = getPageBlobRef(defaultArg connectionString defaultConnectionString, container, file)
 
 /// Represents an XML file stored in blob storage.
-type XmlFile internal (defaultConnectionString, container, file) = 
+type XmlFile internal (defaultConnectionString, container, file) =
     inherit BlockBlobFile(defaultConnectionString, container, file)
-    
+
     /// Reads this file as an XDocument.
     member this.ReadAsXDocument(?connectionString) = this.Read(defaultArg connectionString defaultConnectionString) |> XDocument.Parse
-    
+
     /// Reads this file as an XDocument asynchronously.
     member this.ReadAsXDocumentAsync(?connectionString) = async {
         let! text = this.ReadAsync(defaultArg connectionString defaultConnectionString)
         return XDocument.Parse text }
 
-module BlobBuilder = 
-    let internal (|Text|Binary|XML|) (name : string) = 
+module BlobBuilder =
+    let internal (|Text|Binary|XML|) (name : string) =
         let endsWith extension = name.EndsWith(extension, StringComparison.InvariantCultureIgnoreCase)
         match name with
         | _ when [ ".txt"; ".csv" ] |> Seq.exists endsWith -> Text
@@ -140,14 +140,14 @@ module BlobBuilder =
         | _ -> Binary
 
     /// Creates a block blob file object.
-    let createBlockBlobFile connectionString containerName path = 
+    let createBlockBlobFile connectionString containerName path =
         let details = connectionString, containerName, path
         match path with
         | XML -> XmlFile(details) :> BlockBlobFile
         | Text | Binary -> BlockBlobFile(details)
 
     /// Creates a page blob file object.
-    let createPageBlobFile connectionString containerName path = 
+    let createPageBlobFile connectionString containerName path =
         PageBlobFile(connectionString, containerName, path)
 
     let getSafe defaultConnectionString container getBlobFile connectionString path =
@@ -174,15 +174,15 @@ module BlobBuilder =
         return
             blobs
             |> Array.choose (function
-                | Blob(path, _, blobType, _) -> 
+                | Blob(path, _, blobType, _) ->
                     match blobType with
-                    | BlobType.PageBlob -> (createPageBlobFile connectionString container.Name path) :> BlobFile 
-                    | _ -> (createBlockBlobFile connectionString container.Name path) :> BlobFile 
+                    | BlobType.PageBlob -> (createPageBlobFile connectionString container.Name path) :> BlobFile
+                    | _ -> (createBlockBlobFile connectionString container.Name path) :> BlobFile
                     |> Some
                 | _ -> None) }
 
 /// Represents a pseudo-folder in blob storage.
-type BlobFolder internal (defaultConnectionString, container, file) = 
+type BlobFolder internal (defaultConnectionString, container, file) =
     let getSafe getBlob connectionString path =
         let path = Path.Combine(file, path)
         BlobBuilder.getSafe defaultConnectionString container getBlob connectionString path
@@ -215,12 +215,12 @@ type BlobContainer internal (defaultConnectionString, container) =
     member __.AsCloudBlobContainer(?connectionString) = getBlobContainerRef connectionString
 
     /// Downloads the entire container contents to the local file system asynchronously.
-    member __.Download(path, ?connectionString) = 
+    member __.Download(path, ?connectionString) =
         let connectionDetails = (defaultArg connectionString defaultConnectionString), container, String.Empty
         downloadFolder (connectionDetails, path)
-    
+
     /// Uploads a file to this container.
-    member __.Upload(path, ?connectionString) = 
+    member __.Upload(path, ?connectionString) =
         let filename = path |> Path.GetFileName
         let blobRef = getBlockBlobRef ((defaultArg connectionString defaultConnectionString), container, filename)
 
@@ -230,7 +230,7 @@ type BlobContainer internal (defaultConnectionString, container) =
         |> Option.iter(fun mimeType -> blobRef.Properties.ContentType <- mimeType)
 
         blobRef.UploadFromFileAsync path |> Async.AwaitTask
-    
+
     /// Gets the name of this container.
     member __.Name with get() = container
     /// Allows unsafe navigation to a blob by name.
@@ -249,10 +249,10 @@ type BlobContainer internal (defaultConnectionString, container) =
 
 /// Builder methods to construct blobs etc..
 /// [omit]
-module ContainerBuilder = 
+module ContainerBuilder =
     /// Creates a blob container object.
     let createContainer connectionString containerName = BlobContainer(connectionString, containerName)
-    
+
     /// Creates a blob folder object.
     let createBlobFolder connectionString containerName path = BlobFolder(connectionString, containerName, path)
 

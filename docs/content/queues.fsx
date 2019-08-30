@@ -10,7 +10,7 @@ Working with Queues
 ===================
 
 For more information on Queues in general, please see some of the many articles on
-[MSDN](https://msdn.microsoft.com/en-us/library/microsoft.windowsazure.storage.queue.aspx) or the [Azure](http://azure.microsoft.com/en-us/documentation/services/storage/) [documentation](http://azure.microsoft.com/en-us/documentation/articles/storage-dotnet-how-to-use-queues/). Some of the core features of the Queue provider are: -
+[MSDN](https://msdn.microsoft.com/en-us/library/Microsoft.Azure.storage.queue.aspx) or the [Azure](http://azure.microsoft.com/en-us/documentation/services/storage/) [documentation](http://azure.microsoft.com/en-us/documentation/articles/storage-dotnet-how-to-use-queues/). Some of the core features of the Queue provider are: -
 
 ## Rapid navigation
 
@@ -42,7 +42,7 @@ async {
     // Get the message back off the queue
     let dequeuedMessage = (queue.Dequeue() |> Async.RunSynchronously).Value // don't try this at home :)
     printfn "%A" dequeuedMessage
-    
+
     // Delete it off the queue to tell Azure we're done with it.
     printfn "Deleting the message."
     do! queue.DeleteMessage dequeuedMessage.Id
@@ -63,7 +63,7 @@ let printMessage msg =
 async {
     printfn "Enqueuing a message!"
     do! queue.Enqueue("Hello from Azure Type Provider")
-    
+
     // Get the message, then put it back on the queue with a new payload immediately.
     printfn "Dequeuing it."
     let! message = queue.Dequeue()
@@ -72,7 +72,7 @@ async {
         printMessage message
         printfn "Updating it and dequeuing it again."
         do! queue.UpdateMessage(message.Id, "Goodbye from Azure Type Provider")
-        
+
         // Now dequeue the message again and interrogate it
         let! message = queue.Dequeue()
         match message with
@@ -95,7 +95,7 @@ queues. Omit permissions parameter to get full-access SAS token.
 let duration = TimeSpan.FromMinutes 37.
 printfn "Current time: %O" DateTime.UtcNow
 printfn "SAS expiry: %O" (DateTime.UtcNow.Add duration)
-let sasCode = queue.GenerateSharedAccessSignature(duration, permissions = (QueuePermission.Peek ||| QueuePermission.Enqueue ||| QueuePermission.DequeueAndDeleteMessageAndClear)) 
+let sasCode = queue.GenerateSharedAccessSignature(duration, permissions = (QueuePermission.Peek ||| QueuePermission.Enqueue ||| QueuePermission.DequeueAndDeleteMessageAndClear))
 printfn "SAS URI: %O" sasCode
 (*** include-output: sas ***)
 

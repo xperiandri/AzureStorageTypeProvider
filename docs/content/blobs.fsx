@@ -11,7 +11,7 @@ Working with Blobs
 ==================
 
 For more information on Blobs in general, please see some of the many articles on
-[MSDN](https://msdn.microsoft.com/en-us/library/microsoft.windowsazure.storage.blob.aspx) or the [Azure](http://azure.microsoft.com/en-us/documentation/services/storage/) [documentation](http://azure.microsoft.com/en-us/documentation/articles/storage-dotnet-how-to-use-blobs/). Some of the core features of the Blob provider are: -
+[MSDN](https://msdn.microsoft.com/en-us/library/Microsoft.Azure.storage.blob.aspx) or the [Azure](http://azure.microsoft.com/en-us/documentation/services/storage/) [documentation](http://azure.microsoft.com/en-us/documentation/articles/storage-dotnet-how-to-use-blobs/). Some of the core features of the Blob provider are: -
 
 ## Rapid navigation
 
@@ -27,7 +27,7 @@ let theBlob = container.``folder/``.``childFile.txt``
 printfn "Blob '%s' is %d bytes big." theBlob.Name (theBlob.Size())
 (*** include-output: blobStats ***)
 
-(** 
+(**
 You can also perform useful helper actions on folders, such as pulling back all blobs in a folder.
 *)
 
@@ -41,7 +41,7 @@ printfn "Folder '%s' has the following blobs: %A" folder.Path blobs
 Also note that blobs support [hot schema loading](hot-schema-loading.html#Working-with-Blobs) to allow schema updates to occur as your storage account contents change.
 
 ## Shared types
-Individual files, folders and containers share a common base type so list operations are possible e.g.   
+Individual files, folders and containers share a common base type so list operations are possible e.g.
 *)
 
 (*** define-output: sumOfSizes ***)
@@ -109,7 +109,7 @@ let lines =
       container.``file3.txt``
       container.``sample.txt`` ]
     |> Seq.collect(fun file -> file.ReadLines()) // could also use yield! syntax within a seq { }
-      
+
 printfn "starting to read all lines"
 for line in lines do
     printfn "%s" line

@@ -43,7 +43,7 @@ type FromConfig = AzureTypeProvider<connectionStringName = "myConnection", confi
 
 (**
 
-An example ``sample.config`` file can be found  at ``AzureStorageTypeProvider/docs/content/sample.config``. 
+An example ``sample.config`` file can be found  at ``AzureStorageTypeProvider/docs/content/sample.config``.
 
 Common Themes
 =============
@@ -85,7 +85,7 @@ let rawTableRef = Local.Tables.CloudTableClient.GetTableReference("employee")
 let rawBlobRefHybrid = Local.Containers.samples.``folder/``.``childFile.txt``.AsCloudBlockBlob()
 
 (**
- 
+
 - You can override the connection to the destination asset at runtime. This is useful if not using
 configuration files so that you can use your local (free) storage emulator for development, and then
 move to a live account when testing or moving to production etc.. In addition it's also useful for

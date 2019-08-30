@@ -53,7 +53,7 @@ Target.Create  "AssemblyInfo" (fun _ ->
                                                 AssemblyInfo.Version release.AssemblyVersion
                                                 AssemblyInfo.FileVersion release.AssemblyVersion ])
 
-let inline withWorkDir wd = 
+let inline withWorkDir wd =
     DotNet.Options.withWorkingDirectory wd
 
 // --------------------------------------------------------------------------------------
@@ -93,7 +93,7 @@ Target.Create "RunTests" (fun _ ->
 
 // --------------------------------------------------------------------------------------
 // Build a NuGet package
-Target.Create "NuGet" (fun _ -> 
+Target.Create "NuGet" (fun _ ->
     Directory.create @"bin\package"
     NuGet.NuGet (fun p ->
         { p with
@@ -104,15 +104,15 @@ Target.Create "NuGet" (fun _ ->
             Description = "The F# Azure Storage Type Provider allows simple access to Blob, Table and Queue assets, using Azure Storage metadata to intelligently infer schema where possible, whilst providing a simple API for common tasks."
             Version = release.NugetVersion
             ReleaseNotes = release.Notes |> String.concat Environment.NewLine
-            Tags = "azure, f#, fsharp, type provider, blob, table, queue, script"
+            Tags = "azure, f#, fsharp, type provider, blob, table, queue, cosmos, script"
             OutputPath = @"bin\package"
             Dependencies = [ "WindowsAzure.Storage", "9.3.2" ]
             References = [ "FSharp.Azure.StorageTypeProvider.dll" ]
-            Files = 
+            Files =
                 ([ "FSharp.Azure.StorageTypeProvider.xml"; "FSharp.Azure.StorageTypeProvider.dll"
-                   "Microsoft.WindowsAzure.Storage.dll"; "Newtonsoft.Json.dll" ] 
+                   "Microsoft.Azure.Storage.dll"; "Newtonsoft.Json.dll" ]
                  |> List.map (fun file -> "../bin/netstandard2.0/publish/" + file, Some "lib/netstandard2.0", None))
-                 @ [ "StorageTypeProvider.fsx", None, None ] }) 
+                 @ [ "StorageTypeProvider.fsx", None, None ] })
           ("nuget/" + project + ".nuspec"))
 
 [<AutoOpen>]

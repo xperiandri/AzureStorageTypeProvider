@@ -4,13 +4,13 @@ module FSharp.Azure.StorageTypeProvider.Table.TableRepository
 
 open FSharp.Azure.StorageTypeProvider.Table
 open FSharp.Azure.StorageTypeProvider
-open Microsoft.WindowsAzure.Storage
-open Microsoft.WindowsAzure.Storage.Table
+open Microsoft.Azure.Storage
+open Microsoft.Azure.Cosmos.Table
 open System
 
 /// Suggests batch sizes based on a given entity type and published EDM property type sizes (source: https://msdn.microsoft.com/en-us/library/dd179338.aspx)
 module private BatchCalculator =
-    /// The basic size of a single row with no custom properties. 
+    /// The basic size of a single row with no custom properties.
     let private basicRowSize =
         let partitionKey = 1
         let rowKey = 1
@@ -19,7 +19,7 @@ module private BatchCalculator =
 
     /// Gets the maximum size, in KB, of a single property.
     let private getMaxPropertySize (property:EntityProperty) =
-        match property.PropertyType with 
+        match property.PropertyType with
         | EdmType.DateTime -> 2
         | EdmType.Binary -> 64
         | EdmType.Boolean -> 1
@@ -30,11 +30,11 @@ module private BatchCalculator =
         | EdmType.String -> 64
         | unknown -> failwith (sprintf "Unknown EdmType %A" unknown)
 
-    /// Calculates the maximum size of a given entity. 
+    /// Calculates the maximum size of a given entity.
     let private getMaxEntitySize (entity:DynamicTableEntity) =
         let entityRowSize = entity.Properties.Values |> Seq.sumBy getMaxPropertySize
         basicRowSize + entityRowSize
-        
+
     let private maximumBatchSizeKb = 4000
 
     /// Calculates the maximum number of entities of a given type that can be inserted in a single batch.
@@ -62,7 +62,7 @@ let buildTableEntity partitionKey rowKey names (values: obj []) =
 
     LightweightTableEntity(partitionKey, rowKey, DateTimeOffset.MinValue, properties)
 
-let internal getTable tableName connection = 
+let internal getTable tableName connection =
     let client = getTableClient connection
     client.GetTableReference tableName
 
@@ -85,7 +85,7 @@ module private SdkExtensions =
                 remainingRows <- remainingRows |> Option.map(fun remainingRows -> remainingRows - query.Results.Count)
                 let token = match remainingRows with Some x when x <= 0 -> null | None | Some _ -> query.ContinuationToken
                 return token, query.Results }
-            Async.segmentedAzureOperation doQuery            
+            Async.segmentedAzureOperation doQuery
 
 /// Gets all tables
 let internal getTables connection = async {
@@ -112,7 +112,7 @@ let internal getRowsForSchema (rowCount: int) connection tableName = async {
     let! results = table.ExecuteQueryAsync(DynamicQuery().Take(Nullable rowCount))
     return results |> Array.truncate rowCount }
 
-let toLightweightTableEntity (dte:DynamicTableEntity) = 
+let toLightweightTableEntity (dte:DynamicTableEntity) =
     LightweightTableEntity(
         Partition dte.PartitionKey,
         Row dte.RowKey,
@@ -129,7 +129,7 @@ let executeGenericQueryAsync connection tableName maxResults filterString mapToR
     let! output = table.ExecuteQueryAsync query
     return output |> Array.map mapToReturnEntity }
 
-let executeQueryAsync connection tableName maxResults filterString = 
+let executeQueryAsync connection tableName maxResults filterString =
     executeGenericQueryAsync connection tableName maxResults filterString toLightweightTableEntity
 
 let internal buildDynamicTableEntity(entity:LightweightTableEntity) =
@@ -148,7 +148,7 @@ let internal buildDynamicTableEntity(entity:LightweightTableEntity) =
             | _ -> EntityProperty.CreateEntityPropertyFromObject(value)
     tableEntity
 
-let internal createInsertOperation(insertMode) = 
+let internal createInsertOperation(insertMode) =
     match insertMode with
     | TableInsertMode.Insert -> TableOperation.Insert
     | TableInsertMode.Upsert -> TableOperation.InsertOrReplace
@@ -165,11 +165,11 @@ let private batch size source =
 let private splitIntoBatches createTableOp entities =
     match entities with
     | entities when Seq.isEmpty entities -> Seq.empty
-    | entities -> 
+    | entities ->
         let batchSize = entities |> Seq.head |> BatchCalculator.getBatchSize
         entities
         |> Seq.groupBy(fun (entity:DynamicTableEntity) -> entity.PartitionKey)
-        |> Seq.collect(fun (partitionKey, entities) -> 
+        |> Seq.collect(fun (partitionKey, entities) ->
                 entities
                 |> batch batchSize
                 |> Seq.map(fun entityBatch ->
@@ -197,7 +197,7 @@ let internal executeBatchAsynchronously batchOp entityBatch buildEntityId (table
     |> Async.AwaitTask
     |> Async.toAsyncResult
     |> Async.map(function
-    | Ok reponse -> 
+    | Ok reponse ->
         reponse
         |> Seq.zip entityBatch
         |> Seq.map(fun (entity, res) -> SuccessfulResponse(buildEntityId entity, res.HttpStatusCode))
@@ -222,36 +222,36 @@ let deleteEntities connection tableName entities =
 
 let deleteEntitiesAsync connection tableName entities = async {
     let table = getTable tableName connection
-    return! 
+    return!
         entities
         |> Array.map buildDynamicTableEntity
         |> executeBatchOperationAsync TableOperation.Delete table }
 
 let deleteEntityAsync connection tableName entity = async {
-    let! resp = deleteEntitiesAsync connection tableName [| entity |] 
+    let! resp = deleteEntitiesAsync connection tableName [| entity |]
     return resp |> Seq.head |> snd |> Seq.head }
 
 let insertEntityBatchAsync connection tableName insertMode entities = async {
     let table = getTable tableName connection
     let insertOp = createInsertOperation insertMode
-    return! 
+    return!
         entities
         |> Seq.map buildDynamicTableEntity
         |> executeBatchOperationAsync insertOp table }
 
 let insertEntityAsync connection tableName insertMode entity = async {
-    let! resp = insertEntityBatchAsync connection tableName insertMode [entity] 
+    let! resp = insertEntityBatchAsync connection tableName insertMode [entity]
     return resp |> Seq.head |> snd |> Seq.head }
 
-let composeAllFilters filters = 
+let composeAllFilters filters =
     match filters with
     | [] -> String.Empty
-    | _ -> 
+    | _ ->
         filters
         |> List.rev
         |> List.reduce(fun acc filter -> TableQuery.CombineFilters(acc, TableOperators.And, filter))
 
-let buildFilter(propertyName, comparison, value) = 
+let buildFilter(propertyName, comparison, value) =
     match box value with
     | :? string as value -> TableQuery.GenerateFilterCondition(propertyName, comparison, value)
     | :? int as value -> TableQuery.GenerateFilterConditionForInt(propertyName, comparison, value)
@@ -262,13 +262,13 @@ let buildFilter(propertyName, comparison, value) =
     | :? Guid as value -> TableQuery.GenerateFilterConditionForGuid(propertyName, comparison, value)
     | _ -> TableQuery.GenerateFilterCondition(propertyName, comparison, value.ToString())
 
-let buildGetEntityQry rowKey partitionKey = 
+let buildGetEntityQry rowKey partitionKey =
     let (Row rowKey, Partition partitionKey) = rowKey, partitionKey
     [ ("RowKey", rowKey); ("PartitionKey", partitionKey) ]
     |> List.map(fun (prop, value) -> buildFilter(prop, QueryComparisons.Equal, value))
     |> composeAllFilters
 
-let parseGetEntityResults results = 
+let parseGetEntityResults results =
     match results with
     | [| exactMatch |] -> Some exactMatch
     | _ -> None
@@ -282,4 +282,4 @@ let getEntityAsync rowKey partitionKey connection tableName = async {
 let getPartitionRowsAsync (partitionKey:string) connection tableName = async {
     return!
         buildFilter("PartitionKey", QueryComparisons.Equal, partitionKey)
-        |> executeQueryAsync connection tableName 0 } 
+        |> executeQueryAsync connection tableName 0 }

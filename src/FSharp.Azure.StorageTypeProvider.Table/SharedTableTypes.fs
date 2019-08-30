@@ -1,10 +1,10 @@
 ﻿namespace FSharp.Azure.StorageTypeProvider.Table
 
-open Microsoft.WindowsAzure.Storage.Table
+open Microsoft.Azure.Cosmos.Table
 open System
 
 /// The different types of insertion mechanism to use.
-type TableInsertMode = 
+type TableInsertMode =
     /// Insert if the entity does not already exist.
     | Insert = 0
     /// Insert if the entity does not already exist; otherwise overwrite the entity.

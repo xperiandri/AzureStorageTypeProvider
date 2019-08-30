@@ -2,16 +2,16 @@
 module FSharp.Azure.StorageTypeProvider.Blob.BlobRepository
 
 open FSharp.Azure.StorageTypeProvider
-open Microsoft.WindowsAzure.Storage
-open Microsoft.WindowsAzure.Storage.Blob
+open Microsoft.Azure.Storage
+open Microsoft.Azure.Storage.Blob
 open System
 open System.IO
 
-type ContainerItem = 
+type ContainerItem =
     | Folder of path : string * name : string * contents : ContainerItem array Async
     | Blob of path : string * name : string * blobType : BlobType * length : int64 option
 
-type LightweightContainer = 
+type LightweightContainer =
     { Name : string
       Contents : ContainerItem array Async }
 
@@ -20,8 +20,8 @@ let getContainerRef(connection, container) = (getBlobClient connection).GetConta
 let getBlockBlobRef (connection, container, file) = getContainerRef(connection, container).GetBlockBlobReference(file)
 let getPageBlobRef (connection, container, file) = getContainerRef(connection, container).GetPageBlobReference(file)
 
-let private getItemName (item : string) (parent : CloudBlobDirectory) = 
-    item, 
+let private getItemName (item : string) (parent : CloudBlobDirectory) =
+    item,
     match parent with
     | null -> item
     | parent -> item.Substring(parent.Prefix.Length)
@@ -49,7 +49,7 @@ let listBlobs incSubDirs (container:CloudBlobContainer) prefix = async {
     return
         [| for result in results do
                match result with
-               | :? ICloudBlob as blob -> 
+               | :? ICloudBlob as blob ->
                    let path, name = getItemName blob.Name blob.Parent
                    yield Blob(path, name, blob.Properties.BlobType, Some blob.Properties.Length)
                | _ -> () |] }
@@ -61,17 +61,17 @@ let getBlobStorageAccountManifest (connectionString:string) =
         return
             [| for blob in blobs do
                    match blob with
-                   | :? CloudBlobDirectory as directory -> 
+                   | :? CloudBlobDirectory as directory ->
                        let path, name = getItemName directory.Prefix directory.Parent
                        yield Folder(path, name, container |> getContainerStructureAsync directory.Prefix)
                    | :? ICloudBlob as blob ->
                        let path, name = getItemName blob.Name blob.Parent
                        yield Blob(path, name, blob.Properties.BlobType, Some blob.Properties.Length)
                    | _ -> () |] }
-    
+
     async {
         let client = (CloudStorageAccount.Parse connectionString).CreateCloudBlobClient()
-        let! containers = client.ListContainersAsync() 
+        let! containers = client.ListContainersAsync()
         return!
             containers
             |> Array.map (fun container -> async {
@@ -88,14 +88,14 @@ let downloadFolder (connectionDetails, path) = async {
     let connection, container, folderPath = connectionDetails
     let containerRef = (getBlobClient connection).GetContainerReference(container)
     let! blobs = containerRef.ListBlobsAsync true folderPath
-    
+
     return!
         blobs
         |> Array.choose (function
             | :? ICloudBlob as b -> Some b
             | _ -> None)
-        |> Array.map (fun blob -> 
-            let targetName = 
+        |> Array.map (fun blob ->
+            let targetName =
                 match folderPath with
                 | folderPath when String.IsNullOrEmpty folderPath -> blob.Name
                 | _ -> blob.Name.Replace(folderPath, String.Empty)

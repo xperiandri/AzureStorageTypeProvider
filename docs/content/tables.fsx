@@ -3,7 +3,7 @@
 open Deedle
 open FSharp.Azure.StorageTypeProvider
 open FSharp.Azure.StorageTypeProvider.Table
-open Microsoft.WindowsAzure.Storage.Table
+open Microsoft.Azure.Cosmos.Table
 open System
 type Azure = AzureTypeProvider<"UseDevelopmentStorage=true">
 
@@ -21,7 +21,7 @@ Working with Tables
 ===================
 
 For more information on Tables in general, please see some of the many articles on
-[MSDN](https://msdn.microsoft.com/en-us/library/microsoft.windowsazure.storage.table.aspx) or the [Azure](http://azure.microsoft.com/en-us/documentation/services/storage/) [documentation](http://azure.microsoft.com/en-us/documentation/articles/storage-dotnet-how-to-use-tables/). Some of the core features of the Tables provider are: -
+[MSDN](https://msdn.microsoft.com/en-us/library/Microsoft.Azure.Cosmos.Table.aspx) or the [Azure](http://azure.microsoft.com/en-us/documentation/services/storage/) [documentation](http://azure.microsoft.com/en-us/documentation/articles/storage-dotnet-how-to-use-tables/). Some of the core features of the Tables provider are: -
 
 ##Rapid navigation
 
@@ -47,7 +47,7 @@ well as help query data. Let's look at the schema of the row ``fred.1`` in the `
 
 let theData =
     let keys = [ "Column Name"; "EDM Data Type"; "Value" ]
-    let series = 
+    let series =
         [ [ "Partition Key"; "Row Key"; "Years Worked"; "Dob"; "Name"; "Salary"; "Is Manager" ]
           [ "string"; "string"; "int"; "datetime"; "string"; "double"; "bool" ]
           [ "fred"; "1"; "10"; "01/05/1990"; "fred"; "0"; "true"] ]
@@ -102,7 +102,7 @@ storage account for development purposes, you can probably manually generate a f
 /// Uses first twenty rows of each table for schema inference.
 type FirstTwentyRows = AzureTypeProvider<"UseDevelopmentStorage=true", schemaSize = 20>
 
-(** 
+(**
 This feature is especially useful when working with [hot schema loading](hot-schema-loading.html#Working-with-Tables). If
 new rows are added within the bounds of the schema size, they will be used to re-evaluate the optimal schema automatically.
 
@@ -179,7 +179,7 @@ The list of types available are limited by those supported by Azure Tables: -
 (*** hide ***)
 let schemaTypes =
     let keys = [ "EDM Data Type"; "Value in JSON config" ]
-    let series = 
+    let series =
         [ [ "EdmType.Binary"; "EdmType.Boolean"; "EdmType.DateTime"; "EdmType.Double"; "EdmType.Guid"; "EdmType.Int32"; "EdmType.Int64"; "EdmType.String" ]
           [ "binary"; "boolean"; "datetime"; "double"; "guid"; "int32"; "int64"; "string" ] ]
         |> List.map (Series.ofValues >> fun s -> s :> ISeries<_>)
@@ -190,7 +190,7 @@ let schemaTypes =
 (**
 
 ##Querying data
-The storage provider has an easy-to-use query API that is also flexble and powerful, and uses the 
+The storage provider has an easy-to-use query API that is also flexble and powerful, and uses the
 inferred schema to generate the appropriate query functionality. Data can be queried in several
 ways, in both synchronous or asynchronous forms.
 
@@ -292,7 +292,7 @@ let upsertResponse = employeeTable.Insert(newEmployee, TableInsertMode.Upsert)
 
 (*** include-value: upsertResponse ***)
 
-(** 
+(**
 
 ###Inserting batches
 The Storage provider makes it easier to insert large amounts of data by automatically grouping

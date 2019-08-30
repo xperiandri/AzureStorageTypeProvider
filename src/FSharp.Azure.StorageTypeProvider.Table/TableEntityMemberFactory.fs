@@ -3,7 +3,7 @@ module internal FSharp.Azure.StorageTypeProvider.Table.TableEntityMemberFactory
 
 open FSharp.Azure.StorageTypeProvider.Table.TableRepository
 open Microsoft.FSharp.Quotations
-open Microsoft.WindowsAzure.Storage.Table
+open Microsoft.Azure.Cosmos.Table
 open ProviderImplementation.ProvidedTypes
 open System
 open System.Text
@@ -14,7 +14,7 @@ let private getPropsForEntity (entity:DynamicTableEntity) =
     |> Seq.map(fun p -> p.Key, p.Value.PropertyType)
     |> Set
 
-let private toDistinctColumnDefinitions tableEntities = 
+let private toDistinctColumnDefinitions tableEntities =
     let optionalProperties, mandatoryProperties, _ =
         ((Set.empty, Set.empty, true), tableEntities)
         ||> Seq.fold(fun (optionals, mandatory, initialRun) entity ->
@@ -35,29 +35,29 @@ let humanizeRegex =
     RegularExpressions.Regex (@"(?<=[A-Z])(?=[A-Z][a-z]) |(?<=[^A-Z])(?=[A-Z]) |(?<=[A-Za-z])(?=[^A-Za-z])", RegularExpressions.RegexOptions.IgnorePatternWhitespace)
 
 /// Builds a property for a single entity for a specific type
-let private buildEntityProperty<'a> humanize key need = 
-    let getter, propType = 
+let private buildEntityProperty<'a> humanize key need =
+    let getter, propType =
         match need with
         | Mandatory ->
-            fun (args : Expr list) -> 
+            fun (args : Expr list) ->
                 <@@ let entity = (%%args.[0] : LightweightTableEntity)
                     if entity.Values.ContainsKey key then entity.Values.[key] :?> 'a
                     else Unchecked.defaultof<'a> @@>
             , typeof<'a>
         | Optional ->
-            fun (args : Expr list) -> 
+            fun (args : Expr list) ->
                 <@@ let entity = (%%args.[0] : LightweightTableEntity)
                     if entity.Values.ContainsKey key then Some(entity.Values.[key] :?> 'a)
                     else None @@>
             , typeof<Option<'a>>
-    
+
     let propName = if humanize then humanizeRegex.Replace(key, " ") else key
     let prop = ProvidedProperty(propName, propType, getterCode = getter)
     prop.AddXmlDocDelayed <| fun _ -> (sprintf "Returns the value of the '%s' property" propName)
     prop
 
 /// builds a single EDM parameter
-let private buildEdmParameter edmType builder = 
+let private buildEdmParameter edmType builder =
     match edmType with
     | EdmType.String -> builder typeof<string>
     | EdmType.Binary -> builder typeof<byte []>
@@ -70,10 +70,10 @@ let private buildEdmParameter edmType builder =
     | _ -> builder typeof<obj>
 
 /// Sets the properties on a specific entity based on the inferred schema from the sample provided
-let setPropertiesForEntity humanize (entityType : ProvidedTypeDefinition) columnDefinitions = 
-    entityType.AddMembersDelayed(fun _ -> 
+let setPropertiesForEntity humanize (entityType : ProvidedTypeDefinition) columnDefinitions =
+    entityType.AddMembersDelayed(fun _ ->
         columnDefinitions
-        |> Seq.map (fun { Name = name; ColumnType = columnType; PropertyNeed = propertyNeed } -> 
+        |> Seq.map (fun { Name = name; ColumnType = columnType; PropertyNeed = propertyNeed } ->
                match columnType with
                | EdmType.String -> buildEntityProperty<string> humanize name propertyNeed
                | EdmType.Binary -> buildEntityProperty<byte []> humanize name propertyNeed
@@ -85,7 +85,7 @@ let setPropertiesForEntity humanize (entityType : ProvidedTypeDefinition) column
                | EdmType.Int64 -> buildEntityProperty<int64> humanize name propertyNeed
                | _ -> buildEntityProperty<obj> humanize name propertyNeed)
         |> Seq.toList)
-    
+
     let buildParameter name need buildType =
         match need with
         | Mandatory -> ProvidedParameter(name, buildType)
@@ -94,18 +94,18 @@ let setPropertiesForEntity humanize (entityType : ProvidedTypeDefinition) column
             ProvidedParameter(name, optionOfBuildType, optionalValue = None)
 
     // Build a constructor as well.
-    entityType.AddMemberDelayed(fun () -> 
+    entityType.AddMemberDelayed(fun () ->
         // Split into mandatory and optional parameters - we add the mandatory ones first.
         let mandatoryParams, optionalParams = columnDefinitions |> List.partition(fun r -> r.PropertyNeed = Mandatory)
-        let parameters = 
+        let parameters =
             [ ProvidedParameter("PartitionKey", typeof<Partition>)
-              ProvidedParameter("RowKey", typeof<Row>) ] 
+              ProvidedParameter("RowKey", typeof<Row>) ]
             @ [ for { Name = name; ColumnType = columnType; PropertyNeed = need } in mandatoryParams -> buildEdmParameter columnType (buildParameter name need) ]
             @ [ for { Name = name; ColumnType = columnType; PropertyNeed = need } in optionalParams -> buildEdmParameter columnType (buildParameter name need) ]
         ProvidedConstructor(
-            parameters, 
+            parameters,
             invokeCode = fun args ->
-                let fieldValues = 
+                let fieldValues =
                     args
                     |> Seq.skip 2
                     |> Seq.map (fun arg -> Expr.Coerce(arg, typeof<obj>))
@@ -127,124 +127,124 @@ let generateSchema tableName schemaInferenceRowCount connection = async {
         |> toDistinctColumnDefinitions }
 
 /// Gets all the members for a Table Entity type
-let buildTableEntityMembers columnDefinitions humanize (parentTableType:ProvidedTypeDefinition, parentTableEntityType:ProvidedTypeDefinition, domainType:ProvidedTypeDefinition, connection, tableName) = 
+let buildTableEntityMembers columnDefinitions humanize (parentTableType:ProvidedTypeDefinition, parentTableEntityType:ProvidedTypeDefinition, domainType:ProvidedTypeDefinition, connection, tableName) =
     columnDefinitions |> setPropertiesForEntity humanize parentTableEntityType
-    
+
     parentTableType.AddMembersDelayed(fun () ->
         match columnDefinitions with
         | [] -> []
-        | _ -> 
-            let getPartition = 
+        | _ ->
+            let getPartition =
                 ProvidedMethod
-                    ("GetPartition", 
+                    ("GetPartition",
                      [ ProvidedParameter("key", typeof<string>)
-                       ProvidedParameter("connectionString", typeof<string>, optionalValue = connection) ], parentTableEntityType.MakeArrayType(), 
+                       ProvidedParameter("connectionString", typeof<string>, optionalValue = connection) ], parentTableEntityType.MakeArrayType(),
                      invokeCode = (fun args -> <@@ getPartitionRowsAsync %%args.[1] %%args.[2] tableName |> Async.RunSynchronously @@>))
             getPartition.AddXmlDocDelayed <| fun _ -> "Eagerly retrieves all entities in a table partition by its key."
-            
-            let getPartitionAsync = 
+
+            let getPartitionAsync =
                 ProvidedMethod
-                    ("GetPartitionAsync", 
+                    ("GetPartitionAsync",
                      [ ProvidedParameter("key", typeof<string>)
                        ProvidedParameter("connectionString", typeof<string>, optionalValue = connection) ],
                        typeof<Async<_>>.GetGenericTypeDefinition().MakeGenericType(parentTableEntityType.MakeArrayType()),
                        invokeCode = (fun args -> <@@ getPartitionRowsAsync %%args.[1] %%args.[2] tableName @@>))
             getPartitionAsync.AddXmlDocDelayed <| fun _ -> "Asynchronously retrieves all entities in a table partition by its key."
-            
+
             let queryBuilderType, childTypes = TableQueryBuilder.createTableQueryType parentTableEntityType connection tableName columnDefinitions
-            let executeQuery = 
+            let executeQuery =
                 ProvidedMethod
-                    ("Query", 
+                    ("Query",
                      [ ProvidedParameter("rawQuery", typeof<string>)
-                       ProvidedParameter("connectionString", typeof<string>, optionalValue = connection) ], (parentTableEntityType.MakeArrayType()), 
+                       ProvidedParameter("connectionString", typeof<string>, optionalValue = connection) ], (parentTableEntityType.MakeArrayType()),
                      invokeCode = (fun args -> <@@ executeQueryAsync (%%args.[2] : string) tableName 0 (%%args.[1] : string) |> Async.RunSynchronously @@>))
             executeQuery.AddXmlDocDelayed <| fun _ -> "Executes a weakly-type query and returns the results in the shape for this table."
             let buildQuery = ProvidedMethod("Query", [], queryBuilderType, invokeCode = (fun args -> <@@ ([] : string list) @@>))
             buildQuery.AddXmlDocDelayed <| fun _ -> "Creates a strongly-typed query against the table."
-            let getEntity = 
+            let getEntity =
                 ProvidedMethod
-                    ("Get", 
+                    ("Get",
                      [ ProvidedParameter("rowKey", typeof<Row>)
                        ProvidedParameter("partitionKey", typeof<Partition>)
-                       ProvidedParameter("connectionString", typeof<string>, optionalValue = connection) ], 
-                     (typeof<Option<_>>).GetGenericTypeDefinition().MakeGenericType(parentTableEntityType), 
+                       ProvidedParameter("connectionString", typeof<string>, optionalValue = connection) ],
+                     (typeof<Option<_>>).GetGenericTypeDefinition().MakeGenericType(parentTableEntityType),
                      invokeCode = (fun args -> <@@ getEntityAsync (%%args.[1] : Row) (%%args.[2] : Partition) (%%args.[3] : string) tableName |> Async.RunSynchronously @@>))
             getEntity.AddXmlDocDelayed <| fun _ -> "Gets a single entity based on the row and partition key."
-            let getEntityAsync = 
+            let getEntityAsync =
                 let returnType =
                     let optionType = typeof<Option<_>>.GetGenericTypeDefinition().MakeGenericType(parentTableEntityType)
                     typeof<Async<_>>.GetGenericTypeDefinition().MakeGenericType(optionType)
                 ProvidedMethod
-                    ("GetAsync", 
+                    ("GetAsync",
                      [ ProvidedParameter("rowKey", typeof<Row>)
                        ProvidedParameter("partitionKey", typeof<Partition>)
-                       ProvidedParameter("connectionString", typeof<string>, optionalValue = connection) ], 
-                     returnType, 
+                       ProvidedParameter("connectionString", typeof<string>, optionalValue = connection) ],
+                     returnType,
                      invokeCode = (fun args -> <@@ getEntityAsync (%%args.[1] : Row) (%%args.[2] : Partition) (%%args.[3] : string) tableName @@>))
             getEntityAsync.AddXmlDocDelayed <| fun _ -> "Gets a single entity based on the row and partition key asynchronously."
-            let deleteEntity = 
+            let deleteEntity =
                 ProvidedMethod
-                    ("Delete", 
+                    ("Delete",
                      [ ProvidedParameter("entity", parentTableEntityType)
-                       ProvidedParameter("connectionString", typeof<string>, optionalValue = connection) ], returnType = typeof<TableResponse>, 
+                       ProvidedParameter("connectionString", typeof<string>, optionalValue = connection) ], returnType = typeof<TableResponse>,
                      invokeCode = (fun args -> <@@ deleteEntityAsync %%args.[2] tableName %%args.[1] |> Async.RunSynchronously @@>))
             deleteEntity.AddXmlDocDelayed <| fun _ -> "Deletes a single entity from the table."
-            let deleteEntityAsync = 
+            let deleteEntityAsync =
                 ProvidedMethod
-                    ("DeleteAsync", 
+                    ("DeleteAsync",
                      [ ProvidedParameter("entity", parentTableEntityType)
-                       ProvidedParameter("connectionString", typeof<string>, optionalValue = connection) ], returnType = typeof<Async<TableResponse>>, 
+                       ProvidedParameter("connectionString", typeof<string>, optionalValue = connection) ], returnType = typeof<Async<TableResponse>>,
                      invokeCode = (fun args -> <@@ deleteEntityAsync %%args.[2] tableName %%args.[1] @@>))
             deleteEntityAsync.AddXmlDocDelayed <| fun _ -> "Deletes a single entity from the table asynchronously."
-            let deleteEntities = 
+            let deleteEntities =
                 ProvidedMethod
-                    ("Delete", 
+                    ("Delete",
                      [ ProvidedParameter("entities", parentTableEntityType.MakeArrayType())
-                       ProvidedParameter("connectionString", typeof<string>, optionalValue = connection) ], returnType = typeof<(string * TableResponse []) []>, 
+                       ProvidedParameter("connectionString", typeof<string>, optionalValue = connection) ], returnType = typeof<(string * TableResponse []) []>,
                      invokeCode = (fun args -> <@@ deleteEntities %%args.[2] tableName %%args.[1] @@>))
             deleteEntities.AddXmlDocDelayed <| fun _ -> "Deletes a batch of entities from the table."
-            let deleteEntitiesAsync = 
+            let deleteEntitiesAsync =
                 ProvidedMethod
-                    ("DeleteAsync", 
+                    ("DeleteAsync",
                      [ ProvidedParameter("entities", parentTableEntityType.MakeArrayType())
-                       ProvidedParameter("connectionString", typeof<string>, optionalValue = connection) ], returnType = typeof<Async<(string * TableResponse []) []>>, 
+                       ProvidedParameter("connectionString", typeof<string>, optionalValue = connection) ], returnType = typeof<Async<(string * TableResponse []) []>>,
                      invokeCode = (fun args -> <@@ deleteEntitiesAsync %%args.[2] tableName %%args.[1] @@>))
             deleteEntitiesAsync.AddXmlDocDelayed <| fun _ -> "Deletes a batch of entities from the table asynchronously."
-            let insertEntity = 
+            let insertEntity =
                 ProvidedMethod
-                    ("Insert", 
+                    ("Insert",
                      [ ProvidedParameter("entity", parentTableEntityType)
                        ProvidedParameter("insertMode", typeof<TableInsertMode>, optionalValue = TableInsertMode.Insert)
-                       ProvidedParameter("connectionString", typeof<string>, optionalValue = connection) ], returnType = typeof<TableResponse>, 
+                       ProvidedParameter("connectionString", typeof<string>, optionalValue = connection) ], returnType = typeof<TableResponse>,
                      invokeCode = (fun args -> <@@ insertEntityAsync (%%args.[3] : string) tableName %%args.[2] (%%args.[1] : LightweightTableEntity) |> Async.RunSynchronously @@>))
             insertEntity.AddXmlDocDelayed <| fun _ -> "Inserts a single entity with the inferred table schema into the table."
-            let insertEntityAsync = 
+            let insertEntityAsync =
                 ProvidedMethod
-                    ("InsertAsync", 
+                    ("InsertAsync",
                      [ ProvidedParameter("entity", parentTableEntityType)
                        ProvidedParameter("insertMode", typeof<TableInsertMode>, optionalValue = TableInsertMode.Insert)
-                       ProvidedParameter("connectionString", typeof<string>, optionalValue = connection) ], returnType = typeof<Async<TableResponse>>, 
+                       ProvidedParameter("connectionString", typeof<string>, optionalValue = connection) ], returnType = typeof<Async<TableResponse>>,
                      invokeCode = (fun args -> <@@ insertEntityAsync (%%args.[3] : string) tableName %%args.[2] (%%args.[1] : LightweightTableEntity) @@>))
             insertEntityAsync.AddXmlDocDelayed <| fun _ -> "Asynchronously inserts a single entity with the inferred table schema into the table."
-            let insertEntities = 
+            let insertEntities =
                 ProvidedMethod
-                    ("Insert", 
+                    ("Insert",
                      [ ProvidedParameter("entities", parentTableEntityType.MakeArrayType())
                        ProvidedParameter("insertMode", typeof<TableInsertMode>, optionalValue = TableInsertMode.Insert)
-                       ProvidedParameter("connectionString", typeof<string>, optionalValue = connection) ], returnType = typeof<(string * TableResponse [])[]>, 
+                       ProvidedParameter("connectionString", typeof<string>, optionalValue = connection) ], returnType = typeof<(string * TableResponse [])[]>,
                      invokeCode = (fun args -> <@@ insertEntityBatchAsync (%%args.[3] : string) tableName %%args.[2] (%%args.[1] : LightweightTableEntity []) |> Async.RunSynchronously @@>))
             insertEntities.AddXmlDocDelayed <| fun _ -> "Inserts a batch of entities with the inferred table schema into the table."
-            let insertEntitiesAsync = 
+            let insertEntitiesAsync =
                 ProvidedMethod
-                    ("InsertAsync", 
+                    ("InsertAsync",
                      [ ProvidedParameter("entities", parentTableEntityType.MakeArrayType())
                        ProvidedParameter("insertMode", typeof<TableInsertMode>, optionalValue = TableInsertMode.Insert)
-                       ProvidedParameter("connectionString", typeof<string>, optionalValue = connection) ], returnType = typeof<Async<(string * TableResponse [])[]>>, 
+                       ProvidedParameter("connectionString", typeof<string>, optionalValue = connection) ], returnType = typeof<Async<(string * TableResponse [])[]>>,
                      invokeCode = (fun args -> <@@ insertEntityBatchAsync (%%args.[3] : string) tableName %%args.[2] (%%args.[1] : LightweightTableEntity []) @@>))
             insertEntitiesAsync.AddXmlDocDelayed <| fun _ -> "Asynchronously inserts a batch of entities with the inferred table schema into the table."
-            
+
             domainType.AddMembers(queryBuilderType :: childTypes)
-            
+
             [ getPartition; getPartitionAsync
               getEntity; getEntityAsync
               buildQuery

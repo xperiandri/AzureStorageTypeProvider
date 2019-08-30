@@ -1,0 +1,4 @@
+Microsoft.Azure.Storage.Blob
+FSharp.Core
+System.Configuration.ConfigurationManager
+System.Net.Http

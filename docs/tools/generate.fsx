@@ -8,7 +8,7 @@
 // Binaries that have XML documentation (in a corresponding generated XML file)
 // Any binary output / copied to bin/projectName/projectName.dll will
 // automatically be added as a binary to generate API docs for.
-// for binaries output to root bin folder please add the filename only to the 
+// for binaries output to root bin folder please add the filename only to the
 // referenceBinaries list below in order to generate documentation for the binaries.
 // (This is the original behaviour of ProjectScaffold prior to multi project support)
 let referenceBinaries = [ @"..\..\bin\FSharp.Azure.StorageTypeProvider.dll" ]
@@ -71,7 +71,7 @@ subDirectories (directoryInfo templates)
 let copyFiles () =
   CopyRecursive files output true |> Log "Copying file: "
   ensureDirectory (output @@ "content")
-  CopyRecursive (formatting @@ "styles") (output @@ "content") true 
+  CopyRecursive (formatting @@ "styles") (output @@ "content") true
     |> Log "Copying styles and scripts: "
 
 let references =
