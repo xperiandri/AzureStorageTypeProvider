@@ -3,7 +3,7 @@ redirects: force
 source https://www.nuget.org/api/v2/
 framework: auto-detect
 
-nuget FSharp.Core
+nuget FSharp.Core <= 4.6.0
 nuget Microsoft.Azure.Storage.Common
 nuget Microsoft.Azure.Storage.Blob
 nuget Microsoft.Azure.Storage.Queue
@@ -34,15 +34,14 @@ source https://www.nuget.org/api/v2/
 framework: auto-detect
 storage: none
 
-nuget Fake.Azure.Emulators
-nuget Fake.BuildServer.AppVeyor
+nuget Fake.Azure.Emulators 5.15.4
+nuget Fake.BuildServer.AppVeyor 5.15.4
 nuget Fake.Core
-nuget Fake.Core.ReleaseNotes
-nuget Fake.Core.Targets
-nuget Fake.DotNet
-nuget Fake.DotNet.Cli
-nuget Fake.DotNet.Fsi
-nuget Fake.DotNet.AssemblyInfoFile
-nuget Fake.DotNet.NuGet
-nuget Fake.IO.FileSystem
-nuget Fake.Tools.Git
+nuget Fake.Core.ReleaseNotes 5.15.4
+nuget Fake.DotNet 2.0.0
+nuget Fake.DotNet.Cli 5.15.4
+nuget Fake.DotNet.Fsi 5.15.4
+nuget Fake.DotNet.AssemblyInfoFile 5.15.4
+nuget Fake.DotNet.NuGet 5.15.4
+nuget Fake.IO.FileSystem 5.15.4
+nuget Fake.Tools.Git 5.15.4

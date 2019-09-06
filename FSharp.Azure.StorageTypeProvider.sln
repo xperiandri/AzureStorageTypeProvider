@@ -12,6 +12,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 	ProjectSection(SolutionItems) = preProject
 		build.fsx = build.fsx
 		docs\tools\generate.fsx = docs\tools\generate.fsx
+		global.json = global.json
 		README.md = README.md
 		RELEASE_NOTES.md = RELEASE_NOTES.md
 		sample-blobs.json = sample-blobs.json
