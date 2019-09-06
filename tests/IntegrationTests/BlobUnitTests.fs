@@ -1,4 +1,4 @@
-﻿module BlobTests
+﻿module FSharp.Azure.StorageTypeProvider.BlobTests
 
 open Expecto
 open FSharp.Azure.StorageTypeProvider
@@ -9,21 +9,18 @@ open System.Linq
 open System.IO
 open FSharp.Control.Tasks.ContextInsensitive
 
-type Local = BlobTypeProvider<"UseDevelopmentStorage=true", "">
-type BlobSchema = BlobTypeProvider<blobSchema = "BlobSchema.json">
-
 let container = Local.Containers.samples
 
 [<Tests>]
 let blobCompilationTests =
     testList "Blob Compilation Tests" [
         testCase "Correctly identifies blob containers" (fun _ -> Local.Containers.samples |> ignore)
-        
+
         testCase "Correctly identifies blobs in a container" (fun _ ->
             [ container.``file1.txt``
               container.``file2.txt``
               container.``file3.txt`` ] |> ignore)
-        
+
         testCase "Correctly identifies blobs in a subfolder" (fun _ -> container .``folder/``.``childFile.txt`` |> ignore)
         testCase "Page Blobs are listed" (fun _ -> container.``pageData.bin`` |> ignore) ]
 
@@ -31,7 +28,7 @@ let testFileDownload (blobFile:BlobFile) =
     let filename = Path.GetTempFileName()
     File.Delete filename
     blobFile.Download filename |> Async.RunSynchronously
-    let predicates = 
+    let predicates =
         [ File.Exists
           FileInfo >> fun fi -> fi.Length = blobFile.Size() ]
         |> List.map(fun pred -> pred filename)
@@ -58,15 +55,15 @@ let blobMainTests =
         testCase "Reads a text file as text" (fun _ ->
             let text = container .``sample.txt``.Read()
             text |> shouldEqual "the quick brown fox jumps over the lazy dog\nLorem ipsum dolor sit amet, consectetur adipiscing elit. Cras malesuada.\nLorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla porttitor." )
-       
+
         testCase "Streams a text file line-by-line" (fun _ ->
             let text = container .``sample.txt``.ReadLines() |> Seq.toArray
-        
+
             text.[0] |> shouldEqual "the quick brown fox jumps over the lazy dog"
             text.[1] |> shouldEqual "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Cras malesuada."
             text.[2] |> shouldEqual "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla porttitor."
             text.Length |> shouldEqual 3)
- 
+
         testCase "Opens a file with xml extension as an XML document" (fun _ ->
             let document = container.``data.xml``.ReadAsXDocument()
             let value = document.Elements().First()
@@ -81,7 +78,7 @@ let blobMainTests =
             |> fun r -> r.Results
             |> Seq.map(fun c -> c.Name)) "samples" "")
 
-        testCase "Cloud Blob Container relates to the same data as the type provider" (fun _ -> 
+        testCase "Cloud Blob Container relates to the same data as the type provider" (fun _ ->
             let client = container.AsCloudBlobContainer()
             let blobs = client.ListBlobsSegmentedAsync(null) |> Async.AwaitTask |> Async.RunSynchronously |> fun x -> x.Results |> Seq.choose(function | :? CloudBlockBlob as b -> Some b | _ -> None) |> Seq.map(fun c -> c.Name) |> Seq.toList
             blobs |> shouldEqual [ "data.xml"; "file1.txt"; "file2.txt"; "file3.txt"; "sample.txt" ])
@@ -99,7 +96,7 @@ let blobMainTests =
         testCase "Correctly transforms metadata for a blob container" (fun _ ->
             let underlyingContainer = container.AsCloudBlobContainer()
             underlyingContainer.FetchAttributesAsync() |> Async.AwaitTask |> Async.RunSynchronously
-            
+
             let metadata = container.GetProperties() |> Async.RunSynchronously
             metadata.LastModified |> shouldEqual (underlyingContainer.Properties.LastModified |> Option.ofNullable)
         )
@@ -110,23 +107,23 @@ let blobMainTests =
         testCase "Can correctly download a folder" (fun _ -> testFolderDownload container.``folder/``.Download 2 0)
         testCase "Can correctly download a container" (fun _ -> testFolderDownload container.Download 12 5)
 
-        testCase "Can access Path property on a folder" (fun _ -> 
+        testCase "Can access Path property on a folder" (fun _ ->
             let childFolder = Local.Containers.samples.``folder2/``.``child/``
             childFolder.Path |> shouldEqual "folder2/child/")
 
-        testCase "ListBlobs method returns correct number of blobs" (fun _ -> 
+        testCase "ListBlobs method returns correct number of blobs" (fun _ ->
             let childFolder = Local.Containers.samples.``folder2/``.``child/``
             let allBlobs = childFolder.ListBlobs() |> Async.RunSynchronously
             Seq.length allBlobs |> shouldEqual 1)
 
-        testCase "Can access List blobs method on a folder" (fun _ -> 
+        testCase "Can access List blobs method on a folder" (fun _ ->
             let childFolder = Local.Containers.samples.``folder2/``.``child/``
             let allBlobs = childFolder.ListBlobs true |> Async.RunSynchronously
             let count = allBlobs |> Seq.length
             count |> shouldEqual 4)
 
         testCase "Container name is correct" (fun _ -> Local.Containers.samples.Name |> shouldEqual "samples")
-        
+
         testCase "Sets Content Type on upload" (fun _ ->
             let testContent extension mimeType =
                 let filename = sprintf "test.%s" extension
@@ -148,7 +145,7 @@ let blobMainTests =
             blobs |> shouldEqual [| "folder2/child/grandchild2/descedant3.txt" |])
 
         testCase "Retrieves blobs with prefix and subfolders" (fun _ ->
-            let blobs = Local.Containers.samples.``folder2/``.ListBlobs(includeSubfolders = true, prefix = "child/")  |> Async.RunSynchronously|> Seq.map(fun b -> b.Name) |> Seq.sort |> Seq.toArray 
+            let blobs = Local.Containers.samples.``folder2/``.ListBlobs(includeSubfolders = true, prefix = "child/")  |> Async.RunSynchronously|> Seq.map(fun b -> b.Name) |> Seq.sort |> Seq.toArray
             blobs.Length |> shouldEqual 4)
          ]
 
@@ -176,7 +173,7 @@ let blobStaticSchemaTests =
         testCase "Correct folder path from a static schema" (fun _ ->
             let folder = BlobSchema.Containers.samples.``folder2/``.``child/``
             folder.Path |> shouldEqual "folder2/child/")
-        
+
         testCase "Correct blob name from a static schema" (fun _ ->
             let blob = BlobSchema.Containers.samples.``folder/``.``childFile.txt``
             blob.Name |> shouldEqual "folder/childFile.txt")
@@ -217,16 +214,16 @@ let blobProgrammaticTests =
             let blob = Local.Containers.samples.``folder/``.["childFile.txt"]
             blob.Name |> shouldEqual "folder/childFile.txt"
             blob.Size() |> shouldEqual 16L
-        testCase "Safe handle to an existing block blob returns Some" <| fun _ -> 
+        testCase "Safe handle to an existing block blob returns Some" <| fun _ ->
             let blob = Local.Containers.samples.``folder/``.TryGetBlockBlob "childFile.txt" |> Async.RunSynchronously
             Expect.isSome blob ""
-        testCase "Safe handle to a non-existant block blob returns None" <| fun _ -> 
+        testCase "Safe handle to a non-existant block blob returns None" <| fun _ ->
             let blob = Local.Containers.samples.``folder/``.TryGetBlockBlob "childFilexxx.txt" |> Async.RunSynchronously
             Expect.isNone blob ""
-        testCase "Safe handle to a non-existant page blob returns None" <| fun _ -> 
+        testCase "Safe handle to a non-existant page blob returns None" <| fun _ ->
             let blob = Local.Containers.samples.``folder/``.TryGetBlockBlob "childFilexxx.txt" |> Async.RunSynchronously
             Expect.isNone blob ""
-        testCase "Safe handle to the wrong blob type returns None" <| fun _ -> 
+        testCase "Safe handle to the wrong blob type returns None" <| fun _ ->
             let blob = Local.Containers.samples.``folder/``.TryGetPageBlob "childFile.txt" |> Async.RunSynchronously
             Expect.isNone blob ""
     ]

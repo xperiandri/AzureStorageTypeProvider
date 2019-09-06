@@ -1,6 +1,6 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.28010.2046
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29209.152
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".paket", ".paket", "{CBD0ED53-D40D-4CC2-B4DE-DE97ECEE3A6B}"
 	ProjectSection(SolutionItems) = preProject
@@ -17,6 +17,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "IntegrationTests", "tests\IntegrationTests\IntegrationTests.fsproj", "{C579EF90-6907-4E8B-831A-CF9FE8F6F901}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "ReferencedLibrary", "tests\ReferencedLibrary\ReferencedLibrary.fsproj", "{766DEBF1-87EB-48CF-BC40-8003FF45376A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +29,10 @@ Global
 		{C579EF90-6907-4E8B-831A-CF9FE8F6F901}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C579EF90-6907-4E8B-831A-CF9FE8F6F901}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C579EF90-6907-4E8B-831A-CF9FE8F6F901}.Release|Any CPU.Build.0 = Release|Any CPU
+		{766DEBF1-87EB-48CF-BC40-8003FF45376A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{766DEBF1-87EB-48CF-BC40-8003FF45376A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{766DEBF1-87EB-48CF-BC40-8003FF45376A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{766DEBF1-87EB-48CF-BC40-8003FF45376A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

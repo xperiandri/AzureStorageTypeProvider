@@ -4,10 +4,10 @@ open FSharp.Azure.StorageTypeProvider
 open Swensen.Unquote
 open Expecto
 
-type SecondBlank = AzureTypeProvider<"","Bar">
-type FirstBlank = AzureTypeProvider<"", "Foo">
-//type TwoPart = AzureTypeProvider<"devstoreaccount1", "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==">
-//type FullPath = AzureTypeProvider<"DefaultEndpointsProtocol=https;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;", "test">
+type SecondBlank = BlobTypeProvider<"","Bar">
+type FirstBlank = BlobTypeProvider<"", "Foo">
+//type TwoPart = BlobTypeProvider<"devstoreaccount1", "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==">
+//type FullPath = BlobTypeProvider<"DefaultEndpointsProtocol=https;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;", "test">
 
 [<Tests>]
 let connectionTests =

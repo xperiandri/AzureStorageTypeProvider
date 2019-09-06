@@ -1,27 +1,16 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
-    <RootNamespace>UnitTests</RootNamespace>
-    <Name>UnitTests</Name>
-    <AssemblyName>IntegrationTests</AssemblyName>
-    <TargetFramework>netcoreapp2.0</TargetFramework>
-    <OutputType>Exe</OutputType>
-    <GenerateProgramFile>false</GenerateProgramFile>
+    <TargetFramework>netstandard2.0</TargetFramework>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
   </PropertyGroup>
+
   <ItemGroup>
-    <Compile Include="ExpectoHelpers.fs" />
-    <Compile Include="QueueHelpers.fs" />
     <Compile Include="BlobUnitTests.fs" />
-    <Compile Include="TableHelpers.fs" />
-    <Compile Include="QueueUnitTests.fs" />
-    <Compile Include="ConnectionTests.fs" />
-    <Compile Include="TableUnitTests.fs" />
-    <Compile Include="Program.fs" />
+    <Content Include="BlobSchema.json" />
     <None Include="paket.references" />
   </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\ReferencedLibrary\ReferencedLibrary.fsproj" />
-  </ItemGroup>
+
   <ItemGroup>
     <Reference Include="FSharp.Azure.StorageTypeProvider.Common">
       <HintPath>..\..\src\FSharp.Azure.StorageTypeProvider.Common\bin\Debug\netstandard2.0\FSharp.Azure.StorageTypeProvider.Common.dll</HintPath>
@@ -36,5 +25,7 @@
       <HintPath>..\..\src\FSharp.Azure.StorageTypeProvider.Table\bin\Debug\netstandard2.0\FSharp.Azure.StorageTypeProvider.Table.dll</HintPath>
     </Reference>
   </ItemGroup>
+
   <Import Project="..\..\.paket\Paket.Restore.targets" />
+
 </Project>

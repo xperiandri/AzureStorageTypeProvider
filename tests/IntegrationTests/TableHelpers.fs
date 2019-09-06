@@ -1,12 +1,12 @@
 ﻿module FSharp.Azure.StorageTypeProvider.TableHelpers
 
-open Microsoft.WindowsAzure.Storage
-open Microsoft.WindowsAzure.Storage.Table
+open Microsoft.Azure.Storage
+open Microsoft.Azure.Cosmos.Table
 open System
 
 let bArr = [| for i in 1 .. 255 do yield i |> byte |]
 
-type LargeEntity() = 
+type LargeEntity() =
 //20 byte array properties with a max size of 64kb each give this entity type a maz size of c. 1.3Mb
     inherit TableEntity()
     member val ByteArr1 = bArr with get, set
@@ -29,7 +29,7 @@ type LargeEntity() =
     member val ByteArr19 = bArr with get, set
     member val ByteArr20 = bArr with get, set
 
-type RandomEntity() = 
+type RandomEntity() =
     inherit TableEntity()
     member val Name = String.Empty with get, set
     member val YearsWorking = 0 with get, set
@@ -37,7 +37,7 @@ type RandomEntity() =
     member val Salary = 0.0 with get, set
     member val IsManager = false with get, set
 
-type AlternativeEntity() = 
+type AlternativeEntity() =
     inherit TableEntity()
     member val Name = String.Empty with get, set
     member val Dob = DateTime.MinValue with get, set
@@ -47,11 +47,11 @@ type AlternativeEntity() =
 
 let saveRow (table:CloudTable) = TableOperation.Insert >> table.ExecuteAsync >> Async.AwaitTask >> Async.RunSynchronously >> ignore
 
-let insertRow (pk, rk, name, yearsWorking, dob, salary, isManager) table = 
+let insertRow (pk, rk, name, yearsWorking, dob, salary, isManager) table =
     RandomEntity(Name = name, YearsWorking = yearsWorking, Salary = salary, Dob = dob, PartitionKey = pk, RowKey = rk.ToString(), IsManager = isManager)
     |> saveRow table
 let insertLargeRow (pk, rk) table = LargeEntity(PartitionKey = pk, RowKey = rk) |> saveRow table
-let insertSampleRow (pk, rk, name, dob, salary, isManager, isAnimal) table = 
+let insertSampleRow (pk, rk, name, dob, salary, isManager, isAnimal) table =
     AlternativeEntity(PartitionKey = pk, RowKey = rk.ToString(), Name = name, Dob = dob, Salary = salary, IsManager = isManager, IsAnimal = isAnimal)
     |> saveRow table
 

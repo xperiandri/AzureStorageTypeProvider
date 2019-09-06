@@ -4,7 +4,7 @@ open FSharp.Azure.StorageTypeProvider
 open FSharp.Azure.StorageTypeProvider.Queue
 open Swensen.Unquote
 open Swensen.Unquote.Operators
-open Microsoft.WindowsAzure.Storage.Queue
+open Microsoft.Azure.Storage.Queue
 open System
 open System.Linq
 open System.Net
@@ -12,7 +12,7 @@ open System.Text
 open Expecto
 open FSharp.Control.Tasks.ContextSensitive
 
-type Local = AzureTypeProvider<"DevStorageAccount">
+type Local = QueueTypeProvider<"DevStorageAccount">
 
 [<Tests>]
 let compilationTests =
@@ -30,7 +30,7 @@ let queueSafeAsync = beforeAfterAsync QueueHelpers.resetData QueueHelpers.resetD
 [<Tests>]
 let readOnlyQueueTests =
     testList "Queue Tests Read Only" [
-        testCase "Cloud Queue Client gives same results as the Type Provider" (fun _ ->           
+        testCase "Cloud Queue Client gives same results as the Type Provider" (fun _ ->
             let queues = Local.Queues
             let queueNames = queues.CloudQueueClient.ListQueuesSegmentedAsync(null) |> Async.AwaitTask |> Async.RunSynchronously |> fun r -> r.Results |> Seq.map(fun q -> q.Name) |> Set.ofSeq
             Expect.containsAll queueNames [ queues.``sample-queue``.Name; queues.``second-sample``.Name;  queues.``third-sample``.Name ] "")
@@ -59,14 +59,14 @@ let detailedQueueTests =
 
             //Create a broken message to send to the queue. The queue system expects "Test" to be a Base64 encoded string.
             let request = Encoding.UTF8.GetBytes @"<QueueMessage><MessageText>Test</MessageText></QueueMessage>"
-            
+
             // Send the request
             use wc = new WebClient()
             wc.UploadData(uri, request) |> ignore
 
             let! msg = queue.Dequeue()
             Expect.isSome msg "No message was returned"
-            Expect.throws (fun _ -> msg.Value.Contents.Value |> ignore) "Value shouldn't have been string parseable" })       
+            Expect.throws (fun _ -> msg.Value.Contents.Value |> ignore) "Value shouldn't have been string parseable" })
         testCaseAsync "Deletes a message" <| queueSafeAsync (async {
             do! queue.Enqueue "Foo"
             let! message = queue.Dequeue()

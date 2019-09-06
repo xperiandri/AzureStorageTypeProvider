@@ -7,8 +7,8 @@ open System
 open Expecto
 open FSharp.Control.Tasks.ContextSensitive
 
-type Local = AzureTypeProvider<"DevStorageAccount">
-type Humanized = AzureTypeProvider<"DevStorageAccount", humanize = true>
+type Local = TableTypeProvider<"DevStorageAccount">
+type Humanized = TableTypeProvider<"DevStorageAccount", humanize = true>
 let table = Local.Tables.employee
 
 let tableSafe = beforeAfter TableHelpers.resetData TableHelpers.resetData
@@ -44,7 +44,7 @@ let compilationTests =
 
 type MatchingTableRow =
     { Name : string
-      YearsWorking : int 
+      YearsWorking : int
       Dob : DateTime }
 
 let getTableResult = task {
@@ -97,11 +97,11 @@ let tableReadOnlyTests =
             query.Execute().Length |> shouldEqual 4)
         testCase "Query conditions are correctly mapped" (fun _ ->
             let baseQuery = table.Query().``Where Name Is``
-            baseQuery.``Equal To``("fred").ToString()                 |> shouldEqual "[Name eq 'fred']" 
-            baseQuery.``Greater Than``("fred").ToString()             |> shouldEqual "[Name gt 'fred']" 
-            baseQuery.``Greater Than Or Equal To``("fred").ToString() |> shouldEqual "[Name ge 'fred']" 
-            baseQuery.``Less Than``("fred").ToString()                |> shouldEqual "[Name lt 'fred']" 
-            baseQuery.``Less Than Or Equal To``("fred").ToString()    |> shouldEqual "[Name le 'fred']" 
+            baseQuery.``Equal To``("fred").ToString()                 |> shouldEqual "[Name eq 'fred']"
+            baseQuery.``Greater Than``("fred").ToString()             |> shouldEqual "[Name gt 'fred']"
+            baseQuery.``Greater Than Or Equal To``("fred").ToString() |> shouldEqual "[Name ge 'fred']"
+            baseQuery.``Less Than``("fred").ToString()                |> shouldEqual "[Name lt 'fred']"
+            baseQuery.``Less Than Or Equal To``("fred").ToString()    |> shouldEqual "[Name le 'fred']"
             baseQuery.``Not Equal To``("fred").ToString()             |> shouldEqual "[Name ne 'fred']")
         testCase "Query restricts maximum results" (fun _ -> table.Query().Execute(maxResults = 1).Length |> shouldEqual 1)
 
@@ -109,7 +109,7 @@ let tableReadOnlyTests =
             let! t = getTableResult
             Expect.contains t "employee" ""
         }
-        
+
         testCaseAsync "Async query without arguments brings back all rows" <| async {
             let! results = table.Query().ExecuteAsync()
             return results.Length |> shouldEqual 5 }
@@ -123,53 +123,53 @@ let tableWriteTests =
             result |> shouldEqual <| SuccessfulResponse ((Partition "isaac", Row "500"), 204)
             let deleteResponse = table.Delete([ Partition "isaac", Row "500"])
             deleteResponse |> shouldEqual [| "isaac", [| SuccessfulResponse((Partition "isaac", Row "500"), 204) |] |])
-        
+
         testCaseAsync "Inserts and deletes a row asynchronously using lightweight syntax correctly" <| tableSafeAsync (async {
             let! result = table.InsertAsync(Partition "isaac", Row "500", { Name = "isaac"; YearsWorking = 500; Dob = DateTime.UtcNow })
             result |> shouldEqual <| SuccessfulResponse ((Partition "isaac", Row "500"), 204)
             let! deleteResponse = table.DeleteAsync([ Partition "isaac", Row "500"] )
             deleteResponse |> shouldEqual <| [| "isaac", [| SuccessfulResponse((Partition "isaac", Row "500"), 204) |] |] })
-        
+
         testCase "Inserts and deletes a batch on same partition using lightweight syntax correctly" <| tableSafe (fun _ ->
             let result = table.Insert([ Partition "men", Row "5", { Name = "isaac"; YearsWorking = 500; Dob = DateTime.UtcNow }
                                         Partition "men", Row "6", { Name = "isaac"; YearsWorking = 250; Dob = DateTime.UtcNow } ])
             result |> shouldEqual <| [| "men", [| SuccessfulResponse((Partition "men", Row "6"), 204); SuccessfulResponse((Partition "men", Row "5"), 204) |] |]
             let deleteResponse = table.Delete([ Partition "men", Row "5"; Partition "men", Row "6" ] )
             deleteResponse |> shouldEqual <| [| "men", [| SuccessfulResponse((Partition "men", Row "6"), 204); SuccessfulResponse((Partition "men", Row "5"), 204) |] |] )
-        
+
         testCaseAsync "Deletes row asynchronously using overload for single entity" <| tableSafeAsync (async {
             let entityToDelete = table.Get(Row "1", Partition "men")
             do! table.DeleteAsync(entityToDelete.Value) |> Async.Ignore
             Expect.isNone (table.Get(Row "1", Partition "men")) "" })
-        
+
         testCaseAsync "Deletes rows asynchronously using overload for multiple entities" <| tableSafeAsync (async {
             let entitiesToDelete = table.GetPartition "men"
             do! table.DeleteAsync(entitiesToDelete) |> Async.Ignore
             table.GetPartition("men").Length |> shouldEqual 0 })
-        
+
         testCase "Deleting a non-existant row raises an error" <| tableSafe (fun _ ->
             let deleteResponse = table.Delete [ Partition "blah", Row "500" ]
             deleteResponse |> shouldEqual [| "blah", [| EntityError((Partition "blah", Row "500"), 404, "ResourceNotFound") |] |])
-        
+
         testCaseAsync "Deleting a non-existant row asynchronously raises an error" <| tableSafeAsync (async {
             let! deleteResponse = table.DeleteAsync [ Partition "blah", Row "500"]
             deleteResponse |> shouldEqual <| [| "blah", [| EntityError((Partition "blah", Row "500"), 404, "ResourceNotFound") |] |] })
-        
+
         testCase "Updates an existing row" <| tableSafe (fun _ ->
             table.Insert(Partition "men", Row "1", { Name = "fred"; YearsWorking = 35; Dob = DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc) }, TableInsertMode.Upsert) |> ignore
             table.Get(Row "1", Partition "men").Value.Dob |> shouldEqual <| DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc))
-        
-        testCase "Inserting an existing row returns an error" <| tableSafe (fun _ ->            
+
+        testCase "Inserting an existing row returns an error" <| tableSafe (fun _ ->
             table.Insert(Partition "men", Row "1", { Name = "fred"; YearsWorking = 35; Dob = DateTime.MaxValue }) |> shouldEqual <| EntityError((Partition "men", Row "1"), 409, "EntityAlreadyExists"))
-        
+
         testCaseAsync "Inserting an existing row asynchronously returns an error" <| tableSafeAsync (async {
             let! result = table.InsertAsync(Partition "men", Row "1", { Name = "fred"; YearsWorking = 35; Dob = DateTime.MaxValue })
             result |> shouldEqual <| EntityError((Partition "men", Row "1"), 409, "EntityAlreadyExists") })
-        
+
         testCase "Inserts a row using provided types correctly" <| tableSafe (fun _ ->
             table.Insert(Local.Domain.employeeEntity(Partition "sample", Row "x", DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc), true, "Hello", 6.1, 1)) |> ignore
             let result = table.Get(Row "x", Partition "sample").Value
-            
+
             result.PartitionKey |> shouldEqual "sample"
             result.RowKey       |> shouldEqual "x"
             result.YearsWorking |> shouldEqual 1
@@ -177,11 +177,11 @@ let tableWriteTests =
             result.Name         |> shouldEqual "Hello"
             result.Salary       |> shouldEqual 6.1
             Expect.isTrue result.IsManager "")
-        
+
         testCaseAsync "Inserts a row asynchronously using provided types correctly" <| tableSafeAsync (async {
             do! table.InsertAsync(Local.Domain.employeeEntity(Partition "sample", Row "x", DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc), true, "Hello", 6.1, 1)) |> Async.Ignore
             let result = table.Get(Row "x", Partition "sample").Value
-            
+
             result.PartitionKey |> shouldEqual "sample"
             result.RowKey       |> shouldEqual "x"
             result.YearsWorking |> shouldEqual 1
@@ -189,19 +189,19 @@ let tableWriteTests =
             result.Name         |> shouldEqual "Hello"
             result.Salary       |> shouldEqual 6.1
             Expect.isTrue result.IsManager "" })
-        
+
         testCase "Inserts many rows using provided types correctly" <| tableSafe (fun _ ->
             table.Insert [| Local.Domain.employeeEntity(Partition "sample", Row "x", DateTime.MaxValue, true, "Hello", 5.2, 2)
                             Local.Domain.employeeEntity(Partition "sample", Row "y", DateTime.MaxValue, true, "Hello", 1.8, 2) |] |> ignore
             table.GetPartition("sample").Length |> shouldEqual 2)
-        
+
         testCaseAsync "Inserts many rows asynchronously using provided types correctly" <| tableSafeAsync (async {
             do!
                 table.InsertAsync [| Local.Domain.employeeEntity(Partition "sample", Row "x", DateTime.MaxValue, true, "Hello", 5.2, 2)
-                                     Local.Domain.employeeEntity(Partition "sample", Row "y", DateTime.MaxValue, true, "Hello", 1.8, 2) |] 
+                                     Local.Domain.employeeEntity(Partition "sample", Row "y", DateTime.MaxValue, true, "Hello", 1.8, 2) |]
                 |> Async.Ignore
             2 |> shouldEqual <| table.GetPartition("sample").Length })
-        
+
         testCaseAsync "Query with multiple batches returns all results in the correct order" <| tableSafeAsync (async {
             do!
                 [| 1 .. 1001 |]
@@ -210,12 +210,12 @@ let tableWriteTests =
                     Local.Domain.employeeEntity(Partition "bulk insert", Row i, DateTime.MaxValue, true, "Hello", 100.0, 10))
                 |> table.InsertAsync
                 |> Async.Ignore
-        
+
             let! retrievedEntries = table.GetPartitionAsync "bulk insert"
             retrievedEntries.Length |> shouldEqual 1001
-            retrievedEntries.[0].RowKey |> shouldEqual "0001" 
+            retrievedEntries.[0].RowKey |> shouldEqual "0001"
             retrievedEntries.[1000].RowKey |> shouldEqual "1001"  })
-        
+
         testCase "DeletePartition deletes entries with given partition key" <| tableSafe (fun _ ->
             let pKey, rows = table.DeletePartition "men"
             pKey |> shouldEqual "men"
@@ -223,7 +223,7 @@ let tableWriteTests =
                                    SuccessfulResponse((Partition "men", Row "2"), 204)
                                    SuccessfulResponse((Partition "men", Row "1"), 204) |]
             table.Query().``Where Partition Key Is``.``Equal To``("men").Execute().Length |> shouldEqual 0)
-        
+
         testCaseAsync "DeletePartitionAsync deletes entries with given partition key" <| tableSafeAsync (async {
             let! pKey, rows = table.DeletePartitionAsync "men"
             pKey |> shouldEqual "men"
@@ -231,24 +231,24 @@ let tableWriteTests =
                                    SuccessfulResponse((Partition "men", Row "2"), 204)
                                    SuccessfulResponse((Partition "men", Row "1"), 204) |]
             table.Query().``Where Partition Key Is``.``Equal To``("men").Execute().Length |> shouldEqual 0 })
-        
+
         testCase "Insert suceeds for entries over 4Mb" <| tableSafe (fun _ ->
             let generateLargeEntity partitionKey rowKey =
                 let byteArr20kb = [| for i in 1 .. 20000 do yield i |> byte |]
                 Local.Domain.largeEntity(partitionKey,rowKey,byteArr20kb,byteArr20kb,byteArr20kb,byteArr20kb,byteArr20kb,byteArr20kb,byteArr20kb,byteArr20kb,byteArr20kb,byteArr20kb,byteArr20kb,byteArr20kb,byteArr20kb,byteArr20kb,byteArr20kb,byteArr20kb,byteArr20kb,byteArr20kb,byteArr20kb)
-            
-            let generateBatchOfLargeEntities partitionKey size = 
+
+            let generateBatchOfLargeEntities partitionKey size =
                 [| for _ in 1 .. size -> generateLargeEntity partitionKey (Row(Guid.NewGuid().ToString())) |]
 
             let resultsOfInsert = generateBatchOfLargeEntities (Partition "1") 10 |> Local.Tables.large.Insert
 
-            let failureCount = 
-                resultsOfInsert        
+            let failureCount =
+                resultsOfInsert
                 |> Array.collect snd
                 |> Array.filter (function | SuccessfulResponse _ -> false | _ -> true)
                 |> Array.length
             failureCount |> shouldEqual 0)
-        
+
         testCase "Can insert an row with optionals filled in" <| tableSafe (fun _ ->
             let entity = Local.Domain.optionalsEntity(Partition "foo", Row "1", DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc), true, "bar", 1., Some true, Some 10)
             Local.Tables.optionals.Insert entity |> ignore
@@ -263,7 +263,7 @@ let tableWriteTests =
             entity.Salary       |> shouldEqual 1.
             entity.YearsWorking |> shouldEqual <| Some 10
             Expect.isTrue entity.IsManager "")
-        
+
         testCase "Can insert an row with optionals omitted in" <| tableSafe (fun _ ->
             let entity = Local.Domain.optionalsEntity(Partition "foo", Row "1", DateTime(2000, 1, 1), true, "bar", 1.)
             Local.Tables.optionals.Insert entity |> ignore
